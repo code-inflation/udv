@@ -56,7 +56,7 @@ fn init() {
         process::exit(1);
     }
 
-    let mut gitignore_file = match File::create(&gitignore_path) {
+    let mut gitignore_file = match File::create(gitignore_path) {
         Ok(file) => file,
         Err(e) => {
             eprintln!("Failed to create .gitignore file: {}", e);
@@ -70,7 +70,7 @@ fn init() {
         process::exit(1);
     }
 
-    if let Err(e) = File::create(&config_path) {
+    if let Err(e) = File::create(config_path) {
         eprintln!("Failed to create config file: {}", e);
         process::exit(1);
     }
