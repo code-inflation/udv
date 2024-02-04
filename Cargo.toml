@@ -1,0 +1,14 @@
+[package]
+name = "udv"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Blazingly fast data versioning"
+readme = "README.md"
+repository = "https://github.com/code-inflation/udv/"
+keywords = ["data-versioning", "cli", "dvc", "dataset"]
+categories = ["command-line-utilities"]
+exclude = [".github/"]
+
+[dependencies]
+clap = "4.4.18"
