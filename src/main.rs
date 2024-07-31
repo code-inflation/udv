@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
@@ -145,6 +144,12 @@ fn add_directory(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     for entry in fs::read_dir(path)? {
         let entry = entry?;
         let entry_path = entry.path();
+
+        // Skip the .udv folder
+        if entry_path.file_name().and_then(|s| s.to_str()) == Some(".udv") {
+            continue;
+        }
+
         if entry_path.is_file() {
             add_file(&entry_path)?;
         } else if entry_path.is_dir() {
