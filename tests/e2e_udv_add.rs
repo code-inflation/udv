@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
@@ -88,47 +89,6 @@ fn test_udv_add_single_file() {
 }
 
 #[test]
-fn test_udv_add_directory() {
-    let binary_path = get_binary_path();
-    let temp_dir_path = setup_temp_dir();
-    init_git_repo(&temp_dir_path);
-    run_udv_init(&binary_path, &temp_dir_path);
-
-    // Create a test directory with files
-    let test_dir_path = temp_dir_path.join("test_dir");
-    fs::create_dir(&test_dir_path).unwrap();
-    File::create(test_dir_path.join("file1.txt")).unwrap();
-    File::create(test_dir_path.join("file2.txt")).unwrap();
-
-    // Run udv add
-    let output = run_udv_add(&binary_path, &temp_dir_path, "test_dir");
-    assert!(output.status.success(), "udv add failed for directory");
-
-    // Check .dvc file creation
-    let dvc_file_path = temp_dir_path.join("test_dir.dvc");
-    assert!(
-        dvc_file_path.exists(),
-        ".dvc file was not created for directory"
-    );
-
-    // Check files moved to cache
-    let cache_dir = temp_dir_path.join(".udv").join("cache");
-    assert!(cache_dir.exists(), "Cache directory was not created");
-    assert!(
-        fs::read_dir(cache_dir).unwrap().count() >= 2,
-        "Not all files were cached"
-    );
-
-    // Check .gitignore update
-    let gitignore_path = temp_dir_path.join(".gitignore");
-    let gitignore_content = fs::read_to_string(gitignore_path).unwrap();
-    assert!(
-        gitignore_content.contains("test_dir"),
-        "Directory not added to .gitignore"
-    );
-}
-
-#[test]
 fn test_udv_add_nonexistent_file() {
     let binary_path = get_binary_path();
     let temp_dir_path = setup_temp_dir();
@@ -162,4 +122,84 @@ fn test_udv_add_already_tracked_file() {
         "udv add failed for already tracked file"
     );
     // You might want to check the output to see if it contains a warning message
+}
+
+#[test]
+fn test_udv_add_directory() {
+    let binary_path = get_binary_path();
+    let temp_dir_path = setup_temp_dir();
+    init_git_repo(&temp_dir_path);
+    run_udv_init(&binary_path, &temp_dir_path);
+
+    // Create a test directory with files
+    let test_dir_path = temp_dir_path.join("test_dir");
+    fs::create_dir(&test_dir_path).unwrap();
+
+    // Create files with unique content
+    let file1_path = test_dir_path.join("file1.txt");
+    let content1 = "Content of file 1";
+    fs::write(&file1_path, content1).unwrap();
+
+    let file2_path = test_dir_path.join("file2.txt");
+    let content2 = "Different content for file 2";
+    fs::write(&file2_path, content2).unwrap();
+
+    // Create a subdirectory with a file
+    let sub_dir_path = test_dir_path.join("sub_dir");
+    fs::create_dir(&sub_dir_path).unwrap();
+    let file3_path = sub_dir_path.join("file3.txt");
+    let content3 = "Unique content for file 3 in subdirectory";
+    fs::write(&file3_path, content3).unwrap();
+
+    // Run udv add
+    let output = run_udv_add(&binary_path, &temp_dir_path, "test_dir");
+    assert!(output.status.success(), "udv add failed for directory");
+
+    // Check .dvc file creation for each file
+    assert!(
+        file1_path.with_extension("txt.dvc").exists(),
+        ".dvc file was not created for file1.txt"
+    );
+    assert!(
+        file2_path.with_extension("txt.dvc").exists(),
+        ".dvc file was not created for file2.txt"
+    );
+    assert!(
+        file3_path.with_extension("txt.dvc").exists(),
+        ".dvc file was not created for file3.txt"
+    );
+
+    // Check files moved to cache
+    let cache_dir = temp_dir_path.join(".udv").join("cache");
+    assert!(cache_dir.exists(), "Cache directory was not created");
+
+    // Calculate SHA256 hashes
+    let hash1 = calculate_sha256(content1);
+    let hash2 = calculate_sha256(content2);
+    let hash3 = calculate_sha256(content3);
+
+    // Check for the existence of each file in the cache
+    let cache_file1 = cache_dir.join(&hash1[..2]).join(&hash1[2..]);
+    let cache_file2 = cache_dir.join(&hash2[..2]).join(&hash2[2..]);
+    let cache_file3 = cache_dir.join(&hash3[..2]).join(&hash3[2..]);
+
+    assert!(cache_file1.exists(), "Cache file for file1.txt not found");
+    assert!(cache_file2.exists(), "Cache file for file2.txt not found");
+    assert!(cache_file3.exists(), "Cache file for file3.txt not found");
+
+    // Check .gitignore update
+    let gitignore_path = temp_dir_path.join(".gitignore");
+    let gitignore_content = fs::read_to_string(gitignore_path).unwrap();
+    assert!(
+        gitignore_content.contains("test_dir/file1.txt")
+            && gitignore_content.contains("test_dir/file2.txt")
+            && gitignore_content.contains("test_dir/sub_dir/file3.txt"),
+        "Not all files were added to .gitignore"
+    );
+}
+
+fn calculate_sha256(content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    format!("{:x}", hasher.finalize())
 }
