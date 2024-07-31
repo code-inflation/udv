@@ -1,9 +1,11 @@
 use clap::{Parser, Subcommand};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
+use udv::Config;
 
 /// Blazingly fast data versioning
 #[derive(Parser)]
@@ -63,7 +65,9 @@ fn init() -> Result<(), Box<dyn std::error::Error>> {
     let gitignore_contents = "/config.local\n/tmp\n/cache";
     gitignore_file.write_all(gitignore_contents.as_bytes())?;
 
-    File::create(config_path)?;
+    let config = Config::default();
+    let config_contents = toml::to_string(&config)?;
+    fs::write(config_path, config_contents)?;
 
     println!("udv project initialized successfully.");
     Ok(())

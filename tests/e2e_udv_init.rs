@@ -2,6 +2,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use tempfile::tempdir;
+use toml;
+use udv::{Config, HashAlgorithm};
 
 fn setup_temp_dir() -> PathBuf {
     tempdir().unwrap().into_path()
@@ -55,22 +57,34 @@ fn test_udv_init() {
         ".gitignore file was not created in .udv directory"
     );
     let gitignore_contents =
-        fs::read_to_string(gitignore_path).expect("Failed to read .gitignore file");
+        fs::read_to_string(&gitignore_path).expect("Failed to read .gitignore file");
     let expected_gitignore_contents = "/config.local\n/tmp\n/cache";
     assert_eq!(
         gitignore_contents, expected_gitignore_contents,
         ".gitignore contents do not match expected"
     );
 
-    // Check existence and contesnts of .udv/config
+    // Check existence and contents of .udv/config
     let config_path = udv_dir.join("config");
     assert!(
         config_path.exists(),
         "config file was not created in .udv directory"
     );
 
-    let config_contents = fs::read_to_string(config_path).expect("Failed to read config file");
-    let expected_config_contents = "";
+    let config_contents = fs::read_to_string(&config_path).expect("Failed to read config file");
+
+    // Parse the TOML content
+    let config: Config = toml::from_str(&config_contents).expect("Failed to parse config TOML");
+
+    // Check that the default hash algorithm is MD5
+    assert_eq!(
+        config.hash_algorithm,
+        HashAlgorithm::MD5,
+        "Default hash algorithm is not MD5"
+    );
+
+    // Check the raw TOML content
+    let expected_config_contents = "hash_algorithm = \"MD5\"\n";
     assert_eq!(
         config_contents, expected_config_contents,
         "config file contents do not match expected"
