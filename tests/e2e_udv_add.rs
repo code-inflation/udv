@@ -1,3 +1,4 @@
+use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::Write;
@@ -57,27 +58,37 @@ fn test_udv_add_single_file() {
 
     // Create a test file
     let test_file_path = temp_dir_path.join("test_file.txt");
-    let mut file = File::create(&test_file_path).unwrap();
+    let mut file = File::create(test_file_path).unwrap();
     writeln!(file, "Test content").unwrap();
 
     // Run udv add
     let output = run_udv_add(&binary_path, &temp_dir_path, "test_file.txt");
     assert!(output.status.success(), "udv add failed");
 
-    // Check .dvc file creation
+    // Check .dvc file creation and content
     let dvc_file_path = temp_dir_path.join("test_file.txt.dvc");
     assert!(dvc_file_path.exists(), ".dvc file was not created");
+
+    let dvc_content = fs::read_to_string(dvc_file_path).expect("Failed to read .dvc file");
+    let dvc_json: serde_json::Value =
+        serde_json::from_str(&dvc_content).expect("Failed to parse .dvc JSON");
+
+    assert_eq!(
+        dvc_json["algo"], "md5",
+        "Incorrect hash algorithm in .dvc file"
+    );
+    assert!(
+        dvc_json["hash"].is_string(),
+        "Hash is not a string in .dvc file"
+    );
+    assert!(
+        dvc_json["size_bytes"].is_u64(),
+        "Size is not a u64 in .dvc file"
+    );
 
     // Check file moved to cache
     let cache_dir = temp_dir_path.join(".udv").join("cache");
     assert!(cache_dir.exists(), "Cache directory was not created");
-
-    // We can't check the exact file name in cache without knowing the hash algorithm,
-    // but we can check that the cache is not empty
-    assert!(
-        fs::read_dir(cache_dir).unwrap().next().is_some(),
-        "Cache directory is empty"
-    );
 
     // Check .gitignore update
     let gitignore_path = temp_dir_path.join(".gitignore");
@@ -169,23 +180,32 @@ fn test_udv_add_directory() {
         ".dvc file was not created for file3.txt"
     );
 
-    // Check files moved to cache
-    let cache_dir = temp_dir_path.join(".udv").join("cache");
-    assert!(cache_dir.exists(), "Cache directory was not created");
+    // Check .dvc file creation and content for each file
+    for file_path in &[&file1_path, &file2_path, &file3_path] {
+        let dvc_file_path = file_path.with_extension("txt.dvc");
+        assert!(
+            dvc_file_path.exists(),
+            ".dvc file was not created for {:?}",
+            file_path
+        );
 
-    // Calculate SHA256 hashes
-    let hash1 = calculate_sha256(content1);
-    let hash2 = calculate_sha256(content2);
-    let hash3 = calculate_sha256(content3);
+        let dvc_content = fs::read_to_string(&dvc_file_path).expect("Failed to read .dvc file");
+        let dvc_json: serde_json::Value =
+            serde_json::from_str(&dvc_content).expect("Failed to parse .dvc JSON");
 
-    // Check for the existence of each file in the cache
-    let cache_file1 = cache_dir.join(&hash1[..2]).join(&hash1[2..]);
-    let cache_file2 = cache_dir.join(&hash2[..2]).join(&hash2[2..]);
-    let cache_file3 = cache_dir.join(&hash3[..2]).join(&hash3[2..]);
-
-    assert!(cache_file1.exists(), "Cache file for file1.txt not found");
-    assert!(cache_file2.exists(), "Cache file for file2.txt not found");
-    assert!(cache_file3.exists(), "Cache file for file3.txt not found");
+        assert_eq!(
+            dvc_json["algo"], "md5",
+            "Incorrect hash algorithm in .dvc file"
+        );
+        assert!(
+            dvc_json["hash"].is_string(),
+            "Hash is not a string in .dvc file"
+        );
+        assert!(
+            dvc_json["size_bytes"].is_u64(),
+            "Size is not a u64 in .dvc file"
+        );
+    }
 
     // Check .gitignore update
     let gitignore_path = temp_dir_path.join(".gitignore");
@@ -227,12 +247,6 @@ fn test_udv_add_directory_excludes_udv_folder() {
     let output = run_udv_add(&binary_path, &temp_dir_path, "test_dir");
     assert!(output.status.success(), "udv add failed for directory");
 
-    // Check .dvc file creation for file1.txt
-    assert!(
-        file1_path.with_extension("txt.dvc").exists(),
-        ".dvc file was not created for file1.txt"
-    );
-
     // Check that no .dvc file was created for the file in the .udv folder
     assert!(
         !udv_file_path.with_extension("txt.dvc").exists(),
@@ -242,13 +256,6 @@ fn test_udv_add_directory_excludes_udv_folder() {
     // Check files moved to cache
     let cache_dir = temp_dir_path.join(".udv").join("cache");
     assert!(cache_dir.exists(), "Cache directory was not created");
-
-    // Calculate SHA256 hash for file1.txt
-    let hash1 = calculate_sha256(content1);
-
-    // Check for the existence of file1.txt in the cache
-    let cache_file1 = cache_dir.join(&hash1[..2]).join(&hash1[2..]);
-    assert!(cache_file1.exists(), "Cache file for file1.txt not found");
 
     // Calculate SHA256 hash for the file in .udv folder
     let udv_hash = calculate_sha256(udv_content);

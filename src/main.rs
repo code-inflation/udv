@@ -1,10 +1,11 @@
 use clap::{Parser, Subcommand};
+use md5::Md5;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
-use udv::Config;
+use udv::{Config, HashAlgorithm};
 
 /// Blazingly fast data versioning
 #[derive(Parser)]
@@ -72,20 +73,34 @@ fn init() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn hash_file(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
+fn hash_file(path: &Path, algo: &HashAlgorithm) -> Result<String, Box<dyn std::error::Error>> {
     let mut file = File::open(path)?;
-    let mut hasher = Sha256::new();
-    let mut buffer = [0; 1024];
+    let mut buffer = [0; 8192];
 
-    loop {
-        let bytes_read = file.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break;
+    match algo {
+        HashAlgorithm::MD5 => {
+            let mut hasher = Md5::new();
+            loop {
+                let bytes_read = file.read(&mut buffer)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..bytes_read]);
+            }
+            Ok(format!("{:x}", hasher.finalize()))
         }
-        hasher.update(&buffer[..bytes_read]);
+        HashAlgorithm::SHA256 => {
+            let mut hasher = Sha256::new();
+            loop {
+                let bytes_read = file.read(&mut buffer)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..bytes_read]);
+            }
+            Ok(format!("{:x}", hasher.finalize()))
+        }
     }
-
-    Ok(format!("{:x}", hasher.finalize()))
 }
 
 pub fn add(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
@@ -107,7 +122,10 @@ pub fn add(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn add_file(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let file_hash = hash_file(path)?;
+    let config = Config::read()?;
+    let file_hash = hash_file(path, &config.hash_algorithm)?;
+    let file_size = fs::metadata(path)?.len();
+
     let cache_path = Path::new(".udv/cache")
         .join(&file_hash[..2])
         .join(&file_hash[2..]);
@@ -123,11 +141,11 @@ fn add_file(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         "{}.dvc",
         path.file_name().unwrap().to_str().unwrap()
     ));
+
     let dvc_content = json!({
-        "outs": [{
-            "md5": file_hash,
-            "path": path.to_str().unwrap()
-        }]
+        "algo": config.hash_algorithm.to_string().to_lowercase(),
+        "hash": file_hash,
+        "size_bytes": file_size,
     });
 
     let mut dvc_file = File::create(dvc_path)?;
