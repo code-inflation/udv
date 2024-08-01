@@ -285,3 +285,35 @@ fn calculate_sha256(content: &str) -> String {
     hasher.update(content.as_bytes());
     format!("{:x}", hasher.finalize())
 }
+
+#[test]
+fn test_udv_add_before_init() {
+    let binary_path = get_binary_path();
+    let temp_dir_path = setup_temp_dir();
+    init_git_repo(&temp_dir_path);
+
+    // Create a test file
+    let test_file_path = temp_dir_path.join("test_file.txt");
+    fs::write(&test_file_path, "Test content").unwrap();
+
+    // Try to run udv add before init
+    let output = run_udv_add(&binary_path, &temp_dir_path, "test_file.txt");
+
+    assert!(
+        !output.status.success(),
+        "udv add should fail when run before init"
+    );
+
+    let error_message = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        error_message.contains("UDV is not initialized in this directory"),
+        "Error message should indicate that UDV is not initialized"
+    );
+
+    // Verify that no .dvc file was created
+    let dvc_file_path = test_file_path.with_extension("txt.dvc");
+    assert!(
+        !dvc_file_path.exists(),
+        ".dvc file should not be created when add is run before init"
+    );
+}

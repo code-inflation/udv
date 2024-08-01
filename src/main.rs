@@ -103,9 +103,19 @@ fn hash_file(path: &Path, algo: &HashAlgorithm) -> Result<String, Box<dyn std::e
     }
 }
 
+fn is_udv_initialized() -> bool {
+    Path::new(".udv").exists() && Path::new(".udv/config").exists()
+}
+
 pub fn add(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if !path.exists() {
         return Err(format!("Error: The specified path does not exist: {:?}", path).into());
+    }
+
+    if !is_udv_initialized() {
+        return Err(
+            "UDV is not initialized in this directory. Please run 'udv init' first.".into(),
+        );
     }
 
     // Create .udv/cache directory if it doesn't exist
