@@ -10,10 +10,9 @@ pub enum HashAlgorithm {
 
 impl Default for HashAlgorithm {
     fn default() -> Self {
-        HashAlgorithm::MD5
+        HashAlgorithm::SHA256
     }
 }
-
 
 impl ToString for HashAlgorithm {
     fn to_string(&self) -> String {

@@ -1,3 +1,4 @@
+use pretty_assertions::assert_eq;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -79,12 +80,12 @@ fn test_udv_init() {
     // Check that the default hash algorithm is MD5
     assert_eq!(
         config.hash_algorithm,
-        HashAlgorithm::MD5,
-        "Default hash algorithm is not MD5"
+        HashAlgorithm::SHA256,
+        "Default hash algorithm is not SHA256"
     );
 
     // Check the raw TOML content
-    let expected_config_contents = "hash_algorithm = \"MD5\"\n";
+    let expected_config_contents = "hash_algorithm = \"SHA256\"\n";
     assert_eq!(
         config_contents, expected_config_contents,
         "config file contents do not match expected"

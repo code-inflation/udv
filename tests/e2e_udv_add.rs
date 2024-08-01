@@ -74,7 +74,7 @@ fn test_udv_add_single_file() {
         serde_json::from_str(&dvc_content).expect("Failed to parse .dvc JSON");
 
     assert_eq!(
-        dvc_json["algo"], "md5",
+        dvc_json["algo"], "sha256",
         "Incorrect hash algorithm in .dvc file"
     );
     assert!(
@@ -194,7 +194,7 @@ fn test_udv_add_directory() {
             serde_json::from_str(&dvc_content).expect("Failed to parse .dvc JSON");
 
         assert_eq!(
-            dvc_json["algo"], "md5",
+            dvc_json["algo"], "sha256",
             "Incorrect hash algorithm in .dvc file"
         );
         assert!(
