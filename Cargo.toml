@@ -14,4 +14,4 @@ exclude = [".github/"]
 clap = { version = "4.5.11", features = ["derive"] }
 
 [dev-dependencies]
-tempfile = "3.10.1"
+tempfile = "3.11.0"
